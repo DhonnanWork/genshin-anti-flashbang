@@ -1,0 +1,3 @@
+CHECK_INTERVAL_MS = 30
+BRIGHTNESS_THRESHOLD = 0.9
+CONFIG_FILE = "window_choice.json"
