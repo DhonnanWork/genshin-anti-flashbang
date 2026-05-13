@@ -1,11 +1,13 @@
 import time
 import win32gui
+import win32api
 import win32con
 import pythoncom
 from mss import MSS
 from window_utils import get_window_rect
 from capture import get_border_brightness
-from config import BRIGHTNESS_THRESHOLD
+from input_check import is_any_button_pressed
+from config import BRIGHTNESS_THRESHOLD, ENABLE_CANCEL_BUTTON, FALSE_POSITIVE_CHECK_SEC
 
 class FadeOverlay:
     _class_registered = False
@@ -17,13 +19,19 @@ class FadeOverlay:
         self.running = False
         self._register_class()
 
+    def on_destroy(self, hwnd, msg, wparam, lparam):
+        win32gui.PostQuitMessage(0)
+        return 0
+
     def _register_class(self):
         if not FadeOverlay._class_registered:
             wc = win32gui.WNDCLASS()
             wc.lpszClassName = FadeOverlay._class_name
             wc.hbrBackground = win32gui.GetStockObject(win32con.BLACK_BRUSH)
             wc.style = win32con.CS_HREDRAW | win32con.CS_VREDRAW
-            wc.lpfnWndProc = win32gui.DefWindowProc
+            wc.lpfnWndProc = {
+                win32con.WM_DESTROY: self.on_destroy
+            }
             try:
                 win32gui.RegisterClass(wc)
                 FadeOverlay._class_registered = True
@@ -35,10 +43,12 @@ class FadeOverlay:
             return
         try:
             left, top, width, height = get_window_rect(self.target_hwnd)
-            if width > 2 and height > 2:
+            inset = 6 
+            
+            if width > (inset * 2) and height > (inset * 2):
                 win32gui.SetWindowPos(
                     self.hwnd, win32con.HWND_TOPMOST, 
-                    left + 1, top + 1, width - 2, height - 2, 
+                    left + inset, top + inset, width - (inset * 2), height - (inset * 2), 
                     win32con.SWP_NOACTIVATE
                 )
         except Exception:
@@ -62,21 +72,33 @@ class FadeOverlay:
         self._update_position()
         win32gui.ShowWindow(self.hwnd, win32con.SW_SHOWNOACTIVATE)
 
-        verification_failed = False
-        for _ in range(10):
-            if not self.running:
-                break
-            time.sleep(0.1)
+        start_time = time.perf_counter()
+        is_false_positive = False
+        was_canceled = False
+        
+        time.sleep(0.3)
+        
+        while self.running:
             win32gui.PumpWaitingMessages()
             self._update_position()
             
-            border_brightness = get_border_brightness(self.target_hwnd, local_sct)
-            if border_brightness < BRIGHTNESS_THRESHOLD:
-                verification_failed = True
-                print("False positive detected. Aborting overlay.")
+            if ENABLE_CANCEL_BUTTON and is_any_button_pressed():
+                was_canceled = True
+                print("Cancel button detected. Aborting overlay.")
                 break
+                
+            elapsed = time.perf_counter() - start_time
+            border_brightness = get_border_brightness(self.target_hwnd, local_sct)
+            
+            if border_brightness < BRIGHTNESS_THRESHOLD:
+                if elapsed < FALSE_POSITIVE_CHECK_SEC:
+                    is_false_positive = True
+                    print("False positive (flash) detected. Aborting overlay.")
+                break
+                
+            time.sleep(0.05)
 
-        if verification_failed or not self.running:
+        if was_canceled or is_false_positive or not self.running:
             if self.hwnd and win32gui.IsWindow(self.hwnd):
                 win32gui.ShowWindow(self.hwnd, win32con.SW_HIDE)
                 win32gui.DestroyWindow(self.hwnd)
@@ -85,20 +107,6 @@ class FadeOverlay:
             local_sct.close()
             pythoncom.CoUninitialize()
             return
-
-        remaining_solid = max(0.0, solid_duration - 1.0)
-        if remaining_solid > 0:
-            time.sleep(remaining_solid)
-
-        while self.running:
-            win32gui.PumpWaitingMessages()
-            self._update_position()
-            
-            border_brightness = get_border_brightness(self.target_hwnd, local_sct)
-            if border_brightness < BRIGHTNESS_THRESHOLD:
-                break
-                
-            time.sleep(0.05)
 
         steps = int(fade_duration / 0.03)
         for i in range(steps):

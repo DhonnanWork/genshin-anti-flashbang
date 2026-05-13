@@ -4,7 +4,7 @@ import ctypes
 import atexit
 from mss import MSS
 
-from config import CHECK_INTERVAL_MS, BRIGHTNESS_THRESHOLD
+from config import CHECK_INTERVAL_MS, BRIGHTNESS_THRESHOLD, ENABLE_CANCEL_BUTTON, SOLID_DURATION, FADE_DURATION
 from window_utils import get_target_window
 from capture import get_window_brightness, get_border_brightness
 from overlay import FadeOverlay
@@ -21,6 +21,12 @@ def main():
 
     print(f"\nMonitoring window: {title}")
     
+    if ENABLE_CANCEL_BUTTON:
+        print(f"-> 'Cancel Overlay by Pressing Any Button' feature is currently ON.")
+    else:
+        print(f"-> 'Cancel Overlay by Pressing Any Button' feature is currently OFF.")
+        print(f"   You can turn it on by changing 'ENABLE_CANCEL_BUTTON = True' in 'config.py'.\n")
+
     overlay = FadeOverlay(hwnd)
     sct = MSS()
 
@@ -35,8 +41,16 @@ def main():
                 if border_brightness > BRIGHTNESS_THRESHOLD:
                     if not overlay.running:
                         print(f"Trigger! Center = {brightness:.2f}, Border = {border_brightness:.2f}")
-                        threading.Thread(target=overlay.show_with_fade, args=(2.0, 2.0), daemon=True).start()
-                        time.sleep(1.0)
+                        
+                        threading.Thread(target=overlay.show_with_fade, args=(SOLID_DURATION, FADE_DURATION), daemon=True).start()
+                        
+                        time.sleep(0.5)
+                        
+                        while overlay.running:
+                            time.sleep(0.1)
+                            
+                        while get_window_brightness(hwnd, sct) >= BRIGHTNESS_THRESHOLD:
+                            time.sleep(0.1)
                 
             elapsed = (time.perf_counter() - start) * 1000
             sleep_ms = max(0, CHECK_INTERVAL_MS - elapsed)
