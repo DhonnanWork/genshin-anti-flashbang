@@ -2,6 +2,7 @@ import time
 import threading
 import ctypes
 import atexit
+import win32gui  # Added for window existence checks
 from mss import MSS
 
 from config import CHECK_INTERVAL_MS, BRIGHTNESS_THRESHOLD, ENABLE_CANCEL_BUTTON, SOLID_DURATION, FADE_DURATION
@@ -33,6 +34,11 @@ def main():
     print(f"Checking brightness every {CHECK_INTERVAL_MS} ms. Press Ctrl+C to stop.\n")
     try:
         while True:
+            # Check if Genshin Impact was closed
+            if not win32gui.IsWindow(hwnd):
+                print("Target window closed. Exiting.")
+                break
+
             start = time.perf_counter()
             brightness = get_window_brightness(hwnd, sct)
             
@@ -47,9 +53,11 @@ def main():
                         time.sleep(0.5)
                         
                         while overlay.running:
+                            if not win32gui.IsWindow(hwnd):
+                                break
                             time.sleep(0.1)
                             
-                        while get_window_brightness(hwnd, sct) >= BRIGHTNESS_THRESHOLD:
+                        while win32gui.IsWindow(hwnd) and get_window_brightness(hwnd, sct) >= BRIGHTNESS_THRESHOLD:
                             time.sleep(0.1)
                 
             elapsed = (time.perf_counter() - start) * 1000
