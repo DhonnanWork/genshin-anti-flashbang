@@ -40,30 +40,31 @@ pip install mss numpy pywin32
 ```
 
 ---
+## How to Run
 
-## Running Automatically at Startup (Silent Mode)
+### Running Manually (Standard Mode)
+If you want to run the utility manually and see the console logs (recommended for testing or selecting your window on the initial run), open your terminal in the project directory and execute:
 
-You can run this program silently in the background without a persistent Command Prompt window by utilizing the `run_silently.vbs` script.
-
-### 1. Create the VBScript File
-Ensure you have a file named `run_silently.vbs` in your project folder with the following content:
-
-```vbscript
-Set ObjShell = CreateObject("Wscript.Shell")
-StrPath = CreateObject("Scripting.FileSystemObject").GetParentFolderName(Wscript.ScriptFullName)
-ObjShell.CurrentDirectory = StrPath
-ObjShell.Run "python genshin_window_checker.py", 0, False
+```bash
+python genshin_window_checker.py
 ```
+*Keep this terminal window open while playing. You can stop the program at any time by pressing `Ctrl + C` in the terminal.*
 
-### 2. Place it in the Windows Startup Folder
-To configure the utility to start automatically whenever you turn on your computer:
+---
+
+### Running Automatically at Startup (Silent Mode)
+
+The project includes a pre-configured `run_silently.vbs` script that runs the window checker in the background without keeping a Command Prompt window visible on your taskbar.
+
+To configure the utility to start automatically on system boot:
 
 1. Press `Win + R` on your keyboard to open the Windows **Run** dialog.
-2. Type `shell:startup` and click **OK**. This opens your Windows Startup folder.
-3. Right-click inside the Startup folder and select **New > Shortcut**.
-4. Click **Browse** and select your `run_silently.vbs` file, then finish creating the shortcut.
+2. Type `shell:startup` and click **OK** to open your Windows **Startup** folder.
+3. Right-click an empty space inside the Startup folder and select **New > Shortcut**.
+4. Click **Browse...**, navigate to your project directory, and select the existing `run_silently.vbs` file.
+5. Click **Next** and then **Finish** to complete the shortcut setup.
 
-Now, whenever you log into Windows, the script will run silently in the background, consuming minimal system memory. It will remain completely inactive until you launch *Genshin Impact*.
+The script will now launch silently in the background every time you log into Windows, monitoring for the game window and remaining completely inactive until the game is launched.
 
 ### How to Stop the Program
 Since the script runs without a visible terminal window, you can stop it via Windows:
